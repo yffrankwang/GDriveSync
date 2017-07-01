@@ -168,7 +168,7 @@ class Config:
 		self.REDIRECT_URI = 'http://localhost'
 		self.client_id = self.get('client_id', '1051614873204-7fsgjppvimpjj0e1g03lu3ksjmhk64d5.apps.googleusercontent.com')
 		self.client_secret = self.get('client_secret', 'Z8wuT_jQbhNmUriHJu-mayX6')
-		self.token_file = self.get('token_file', '.gdrivesync.json')
+		self.token_file = self.get('token_file', '.gdrivesync.token')
 
 		if os.path.exists(self.token_file):
 			self.last_sync = mtime(self.token_file)
