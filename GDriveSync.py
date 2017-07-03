@@ -92,6 +92,8 @@ def uexception(ex):
 	if LOG:
 		LOG.exception(ex)
 
+def szstr(n):
+	return "{:,}".format(n)
 
 def utime(d):
 	return d.astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -152,6 +154,9 @@ class Config:
 
 		# user webbrowser
 		self.webbrowser = True if self.get('webbrowser', 'true') == 'true' else False 
+
+		# max_file_size
+		self.max_file_size = int(self.get('max_file_size', '1073741824'))
 
 		# max retry
 		self.max_retry = int(self.get('max_retry', '3'))
@@ -317,6 +322,7 @@ class GDriveSync:
 		self.service = service
 		self.rfiles = {}
 		self.rpaths = {}
+		self.skips = []
 
 	def exea(self, api, msg):
 		cnt = 0
@@ -360,9 +366,17 @@ class GDriveSync:
 	
 	def print_updates(self, files):
 		if files:
+			uprint("--------------------------------------------------------------------------------")
 			uinfo("Files to be synchronized:")
 			for f in files:
 				uprint("%s: %s  [%d] (%s) %s" % (f.action, f.path, f.size, str(f.mdate), f.reason))
+
+	def print_skips(self, files):
+		if photos:
+			uprint("--------------------------------------------------------------------------------")
+			uprint("Skipped files:")
+			for f in files:
+				uprint("%s: %s  [%s] (%s) %s" % (f.action, f.path, szstr(f.fsize), str(f.mdate), f.reason))
 
 	def unknown_files(self, unknowns):
 		uprint("--------------------------------------------------------------------------------")
@@ -752,6 +766,8 @@ class GDriveSync:
 				lf = self.lpaths[sf.path]
 				self.touch_local_file(lf, sf.mdate)
 
+		self.print_skips(self.skips)
+
 	def upload_files(self, lfiles):
 		self.sync_files(lfiles)
 
@@ -778,6 +794,7 @@ class GDriveSync:
 				if ans.lower() != "y":
 					return
 			self.patch_files(pfiles)
+			uprint("--------------------------------------------------------------------------------")
 			uinfo("PATCH Completed!")
 		else:
 			uinfo('No files need to be patched.')
@@ -796,6 +813,7 @@ class GDriveSync:
 				if ans.lower() != "y":
 					return
 			self.touch_files(pfiles)
+			uprint("--------------------------------------------------------------------------------")
 			uinfo("TOUTH Completed!")
 		else:
 			uinfo('No files need to be touched.')
@@ -819,6 +837,7 @@ class GDriveSync:
 			self.upload_files(ufiles)
 			if force:
 				self.up_to_date()
+			uprint("--------------------------------------------------------------------------------")
 			uinfo("PUSH %s Completed!" % ('(FORCE)' if force else ''))
 		else:
 			uinfo('No files need to be uploaded to remote server.')
@@ -842,6 +861,7 @@ class GDriveSync:
 			self.dnload_files(dfiles)
 			if force:
 				self.up_to_date()
+			uprint("--------------------------------------------------------------------------------")
 			uinfo("PULL %s Completed!" % ('(FORCE)' if force else ''))
 		else:
 			uinfo('No files need to be downloaded to local.')
@@ -863,6 +883,7 @@ class GDriveSync:
 					return
 			self.sync_files(sfiles)
 			self.up_to_date()
+			uprint("--------------------------------------------------------------------------------")
 			uinfo("SYNC Completed!")
 		else:
 			self.up_to_date()
@@ -925,6 +946,11 @@ class GDriveSync:
 		self.rpaths.pop(file.path, file)
 
 	def insert_remote_file(self, pf, lf):
+		if lf.size > config.max_file_size:
+			self.skips.append(lf)
+			uwarn("%s Unable to upload %s, File size [%s] exceed the limit" % (self.prog, lf.path, szstr(lf.size)))
+			return
+
 		'''
 		Insert a file to google drive.
 		'''
@@ -941,6 +967,11 @@ class GDriveSync:
 		return f
 
 	def update_remote_file(self, rf, lf):
+		if lf.size > config.max_file_size:
+			self.skips.append(lf)
+			uwarn("%s Unable to upload %s, File size [%s] exceed the limit" % (self.prog, lf.path, szstr(lf.size)))
+			return
+
 		'''
 		Update a file to google drive.
 		'''

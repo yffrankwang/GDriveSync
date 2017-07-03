@@ -58,4 +58,4 @@ Configure options for file synchronization:
 --------------------
 A token file is created during execution:
 
-* `.gdrivesync.json`: which has the token to authenticate to Google Drive
+* `.gdrivesync.token`: which has the token to authenticate to Google Drive
