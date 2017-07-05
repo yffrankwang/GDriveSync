@@ -37,7 +37,7 @@ from apiclient.http import MediaFileUpload
 LTZ = tzlocal.get_localzone()
 SENC = sys.getdefaultencoding()
 FENC = sys.getfilesystemencoding()
-DT1970 = datetime.datetime.fromtimestamp(0).replace(tzinfo=LTZ)
+DT1970 = datetime.datetime.fromtimestamp(0)
 SMALL = 2 * 1024 * 1024
 LOG = None
 
@@ -97,13 +97,13 @@ def szstr(n):
 	return "{:,}".format(n)
 
 def tmstr(t):
-	return t.strftime('%Y-%m-%dT%H:%M:%S%z')
+	return t.strftime('%Y-%m-%d %H:%M:%S')
 
-def utime(d):
-	return d.astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+def mtstr(t):
+	return LTZ.localize(t).astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
 def mtime(p):
-	return datetime.datetime.fromtimestamp(os.path.getmtime(p)).replace(microsecond=0, tzinfo=LTZ)
+	return datetime.datetime.fromtimestamp(os.path.getmtime(p)).replace(microsecond=0)
 
 def ftime(dt):
 	return tseconds(dt - DT1970)
@@ -112,7 +112,7 @@ def tseconds(td):
 	return (td.seconds + td.days * 24 * 3600)
 
 def touch(p, d = None):
-	atime = ftime(datetime.datetime.now().replace(tzinfo=LTZ))
+	atime = ftime(datetime.datetime.now())
 	mtime = atime if d is None else ftime(d)
 	os.utime(p, ( atime, mtime ))
 
@@ -150,7 +150,7 @@ class Config:
 		
 		# Location
 		self.root_dir = trimdir(os.path.abspath(self.get('root_dir', '.')))
-		
+
 		# self.get('trash_dir', self.root_dir + '/.trash')
 		self.trash_dir = self.get('trash_dir', '')
 		if self.trash_dir:
@@ -296,7 +296,7 @@ class GFile:
 				self.parent = 'UNKNOWN'
 
 	def to_date(self, md):
-		return dateutil.parser.parse(md).replace(microsecond=0).astimezone(LTZ)
+		return dateutil.parser.parse(md).replace(microsecond=0).astimezone(LTZ).replace(tzinfo=None)
 
 
 class GFileDownloader:
@@ -361,12 +361,12 @@ class GDriveSync:
 			if f.folder:
 				uprint(u"== %s ==" % (f.path))
 			elif f.parent and f.parent != '/' and f.path[0] != '?':
-				uprint(u"    %s [%s] (%s)" % (f.name, szstr(f.size), tmstr(f.mdate)))
+				uprint(u"    %-40s [%11s] (%s)" % (f.name, szstr(f.size), tmstr(f.mdate)))
 			else:
-				uprint(u"%s [%s] (%s)" % (f.path, szstr(f.size), tmstr(f.mdate)))
+				uprint(u"%-44s [%11s] (%s)" % (f.path, szstr(f.size), tmstr(f.mdate)))
 
 		uprint("--------------------------------------------------------------------------------")
-		uprint("Total %d items [%s]" % (len(paths), szstr(tz)))
+		uprint("Total %s items [%s]" % (szstr(len(paths)), szstr(tz)))
 	
 	def print_updates(self, files):
 		if files:
@@ -391,7 +391,7 @@ class GDriveSync:
 			uprint(u"%s %s [%s] (%s) <%s>" % ('=' if f.folder else ' ', f.name, szstr(f.size), tmstr(f.mdate), f.owner))
 
 		uprint("--------------------------------------------------------------------------------")
-		uprint("Unknown %d items [%d]" % (len(unknowns), szstr(tz)))
+		uprint("Unknown %s items [%s]" % (szstr(len(unknowns)), szstr(tz)))
 	
 	def get(self, fid):
 		api = self.service.files().get(fileId=fid)
@@ -911,7 +911,7 @@ class GDriveSync:
 		
 	def create_remote_folder(self, path, title, pid = None):
 		'''
-		Create a folder with title under a parnet folder with parent_id.
+		Create a folder with title under a parent folder with parent_id.
 		'''
 		uinfo("%s ^CREATE^ %s" % (self.prog, path))
 
@@ -965,7 +965,7 @@ class GDriveSync:
 		uinfo("%s ^UPLOAD^ %s [%s] (%s)" % (self.prog, lf.path, szstr(lf.size), tmstr(lf.mdate)))
 
 		media_body = MediaFileUpload(lf.npath, lf.mime, resumable=True if lf.size > SMALL else False)
-		body = { 'title': lf.name, 'modifiedDate': utime(lf.mdate) }
+		body = { 'title': lf.name, 'modifiedDate': mtstr(lf.mdate) }
 		if pf:
 			body['parents'] = [{'id': pf.id}]
 		
@@ -986,7 +986,7 @@ class GDriveSync:
 		uinfo("%s ^UPDATE^ %s [%s] (%s)" % (self.prog, rf.path, szstr(lf.size), tmstr(lf.mdate)))
 
 		media_body = MediaFileUpload(rf.npath, rf.mime, resumable=True if lf.size > SMALL else False)
-		body = { 'title': rf.name, 'modifiedDate': utime(lf.mdate) }
+		body = { 'title': rf.name, 'modifiedDate': mtstr(lf.mdate) }
 		if rf.parent:
 			body['parents'] = [{'id': rf.parent}]
 
@@ -1015,7 +1015,7 @@ class GDriveSync:
 		'''
 		uinfo("%s ^PATCH^  %s [%s] (%s)" % (self.prog, rf.path, szstr(rf.size), tmstr(mt)))
 
-		body = { 'modifiedDate': utime(mt) }
+		body = { 'modifiedDate': mtstr(mt) }
 		api = self.service.files().patch(fileId=rf.id, body=body, setModifiedDate=True, fields='modifiedDate')
 		self.exea(api, 'patch')
 		rf.mdate = mt
@@ -1052,7 +1052,7 @@ class GDriveSync:
 			
 			shutil.move(lf.npath, np)
 		else:
-			uinfo("%s >REMOVE>  %s" % (self.prog, lf.path))
+			uinfo("%s >REMOVE> %s" % (self.prog, lf.path))
 			os.remove(lf.npath)
 
 	def remove_local_file(self, lf):
