@@ -204,26 +204,26 @@ class GoogleCredentials(object):
 	def __init__(self):
 		self.path = os.path.abspath(config.token_file)
 		self.cred = None
-		self.file = None
 		self.lock = None
 
 	def _load_credentials(self):
 		if os.path.exists(self.path):
-			self.file = open(self.path)
-			try:
-				self.cred = self.file.read()
-				json.loads(self.cred)
-			except Exception as e:
-				self.cred = None
-				uwarn("Failed to load credentials: " + str(e));
+			with open(self.path) as f:
+				try:
+					self.cred = f.read()
+					json.loads(self.cred)
+				except Exception as e:
+					self.cred = None
+					uwarn("Failed to load credentials: " + str(e));
 
 	def _save_credentials(self):
-		self.file = open(self.path, 'w')
-		self.file.write(self.cred)
+		with open(self.path, 'w') as f:
+			f.write(self.cred)
+
 		touch(self.path, config.last_sync)
 
 	def _lock_credentials(self):
-		FileLock.lock(self.file)
+		FileLock.lock(open(self.path))
 
 	def _get_credentials(self):
 		flow = OAuth2WebServerFlow(config.client_id,
@@ -370,8 +370,6 @@ class GDriveSync:
 	
 	def print_updates(self, files):
 		if files:
-			uprint("--------------------------------------------------------------------------------")
-			uinfo("Files to be synchronized:")
 			for f in files:
 				uprint(u"%s: %s [%s] (%s) %s" % (f.action, f.path, szstr(f.size), tmstr(f.mdate), f.reason))
 
@@ -571,7 +569,6 @@ class GDriveSync:
 		for lp in lps:
 			ufiles.append(self.lpaths[lp])
 		
-		self.print_updates(ufiles)
 		return ufiles
 
 	"""
@@ -595,7 +592,6 @@ class GDriveSync:
 		for rp in rps:
 			ufiles.append(self.rpaths[rp])
 		
-		self.print_updates(ufiles)
 		return ufiles
 
 	"""
@@ -656,8 +652,7 @@ class GDriveSync:
 			rps.sort(reverse=True)
 			for rp in rps:
 				ufiles.append(self.rpaths[rp])
-			
-		self.print_updates(ufiles)
+
 		return ufiles
 
 	"""
@@ -720,7 +715,6 @@ class GDriveSync:
 			for lp in lps:
 				ufiles.append(self.lpaths[lp])
 
-		self.print_updates(ufiles)
 		return ufiles
 
 	"""
@@ -793,7 +787,12 @@ class GDriveSync:
 
 		pfiles = self.find_remote_patches()
 		if pfiles:
+			uprint("--------------------------------------------------------------------------------")
+			uinfo("Files to be synchronized:")
+			self.print_updates(pfiles)
+
 			if not noprompt:
+				uprint("--------------------------------------------------------------------------------")
 				ans = raw_input("Are you sure to patch %d remote files? (Y/N): " % (len(pfiles)))
 				if ans.lower() != "y":
 					return
@@ -812,7 +811,12 @@ class GDriveSync:
 
 		pfiles = self.find_local_touches()
 		if pfiles:
+			uprint("--------------------------------------------------------------------------------")
+			uinfo("Files to be synchronized:")
+			self.print_updates(pfiles)
+
 			if not noprompt:
+				uprint("--------------------------------------------------------------------------------")
 				ans = raw_input("Are you sure to touch %d local files? (Y/N): " % (len(pfiles)))
 				if ans.lower() != "y":
 					return
@@ -833,7 +837,12 @@ class GDriveSync:
 		ufiles = self.find_local_updates(None, force)
 		
 		if ufiles:
+			uprint("--------------------------------------------------------------------------------")
+			uinfo("Files to be synchronized:")
+			self.print_updates(ufiles)
+
 			if not noprompt:
+				uprint("--------------------------------------------------------------------------------")
 				ans = raw_input("Are you sure to push %d files to Google Drive? (Y/N): " % len(ufiles))
 				if ans.lower() != "y":
 					return
@@ -858,7 +867,12 @@ class GDriveSync:
 		dfiles = self.find_remote_updates(None, force)
 		
 		if dfiles:
+			uprint("--------------------------------------------------------------------------------")
+			uinfo("Files to be synchronized:")
+			self.print_updates(dfiles)
+
 			if not noprompt:
+				uprint("--------------------------------------------------------------------------------")
 				ans = raw_input("Are you sure to pull %d files to local? (Y/N): " % len(dfiles))
 				if ans.lower() != "y":
 					return
@@ -883,10 +897,16 @@ class GDriveSync:
 		sfiles = self.find_sync_files()
 		
 		if sfiles:
+			uprint("--------------------------------------------------------------------------------")
+			uinfo("Files to be synchronized:")
+			self.print_updates(sfiles)
+
 			if not noprompt:
+				uprint("--------------------------------------------------------------------------------")
 				ans = raw_input("Are you sure to sync %d files? (Y/N): " % len(sfiles))
 				if ans.lower() != "y":
 					return
+
 			self.sync_files(sfiles)
 			self.up_to_date()
 			uprint("--------------------------------------------------------------------------------")
@@ -1061,7 +1081,7 @@ class GDriveSync:
 		if os.path.exists(np):
 			os.rmdir(np)
 
-def help():
+def showUsage():
 	print("GDriveSync.py <command> ...")
 	print("  <command>: ")
 	print("    help                print command usage")
@@ -1131,7 +1151,7 @@ def main(args):
 		cmd = args[0]
 
 	if cmd == 'help':
-		help()
+		showUsage()
 		exit(0)
 
 	uinfo('Start...')
@@ -1189,7 +1209,7 @@ def main(args):
 	elif cmd == 'touch':
 		gs.touch(True if 'go' in args else False)
 	else:
-		help()
+		showUsage()
 
 
 if __name__ == "__main__":
