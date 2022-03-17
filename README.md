@@ -9,13 +9,12 @@ Google Drive Synchronize Command Line Tool.
 
 Install dependencies
 
-    pip install --upgrade pytz tzlocal python-dateutil google-api-python-client exifread 
-
-On Windows, download and install [pwin32](https://sourceforge.net/projects/pywin32/).
+    pip install --upgrade pytz tzlocal python-dateutil exifread 
+    pip install --upgrade oauth2client google-api-python-client
 
 Using git to get source
 
-    git clone https://github.com/pandafw/GDriveSync.git
+    git clone https://github.com/yffrankwang/GDriveSync.git
     
 Configure options for file synchronization:
 
