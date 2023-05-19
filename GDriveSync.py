@@ -502,7 +502,7 @@ class GDriveSync:
 		lpaths = {}
 		for dirpath, dirnames, filenames in os.walk(rootdir, topdown=True, followlinks=True):
 			# do not walk into unacceptable directory
-			dirnames[:] = [d for d in dirnames if not d[0] == '.' and self.accept_path(os.path.normpath(os.path.join(dirpath, d))[len(rootdir):].replace('\\', '/'))]
+			dirnames[:] = [d for d in dirnames if self.accept_path(os.path.normpath(os.path.join(dirpath, d))[len(rootdir):].replace('\\', '/'))]
 
 			for d in dirnames:
 				np = os.path.normpath(os.path.join(dirpath, d))
@@ -522,9 +522,6 @@ class GDriveSync:
 				lpaths[gf.path] = gf
 
 			for f in filenames:
-				if f[0] == '.':
-					continue
-
 				np = os.path.normpath(os.path.join(dirpath, f))
 				rp = np[len(rootdir):].replace('\\', '/')
 				if not self.accept_path(rp):
